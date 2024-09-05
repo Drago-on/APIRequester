@@ -7,9 +7,15 @@ import java.nio.file.StandardOpenOption;
 
 public class FileWriterUtil {
 
-    private static final Path OUTPUT_FILE = Path.of("response.txt");
+    private static Path outputPath = Path.of("response.txt");
 
     public static void writeToFile(String content) throws IOException {
-        Files.writeString(OUTPUT_FILE, content + System.lineSeparator(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        Files.writeString(outputPath, content + System.lineSeparator(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        System.out.println("Data written to file: " + outputPath);
+    }
+
+    public static void setFilePath(String filePath) {
+        outputPath = Path.of(filePath);
+        System.out.println("File path set to: " + outputPath);
     }
 }
