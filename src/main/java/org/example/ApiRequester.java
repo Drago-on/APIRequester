@@ -6,14 +6,17 @@ import java.util.TimerTask;
 public class ApiRequester {
 
     private static final int MAX_REQUESTS = 2;
-    private static int requestCount = 0;
-    private static Timer timer;
+    private int requestCount = 0;
+    private Timer timer;
+    private final CatFactService catFactService;
+    private final FileWriterUtil fileWriterUtil;
 
-    public static void main(String[] args) {
-        startRequestProcess();
+    public ApiRequester(CatFactService catFactService, FileWriterUtil fileWriterUtil) {
+        this.catFactService = catFactService;
+        this.fileWriterUtil = fileWriterUtil;
     }
 
-    public static void startRequestProcess() {
+    public void startRequestProcess() {
         timer = new Timer();
         requestCount = 0;
 
@@ -30,10 +33,10 @@ public class ApiRequester {
         }, 0, 10000);
     }
 
-    public static void performRequest() {
+    public void performRequest() {
         try {
-            String fact = CatFactService.fetchCatFact();
-            FileWriterUtil.writeToFile(fact);
+            String fact = catFactService.fetchCatFact();
+            fileWriterUtil.writeToFile(fact);
             System.out.println("Fact saved to file: " + fact);
             requestCount++;
         } catch (Exception e) {
@@ -41,11 +44,11 @@ public class ApiRequester {
         }
     }
 
-    public static int getRequestCount() {
+    public int getRequestCount() {
         return requestCount;
     }
 
-    public static void resetRequestCount() {
+    public void resetRequestCount() {
         requestCount = 0;
     }
 }
