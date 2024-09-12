@@ -1,68 +1,100 @@
 package org.example;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ApiRequesterTest {
 
-    private File tempFile;
+    private WireMockServer wireMockServer;
+    private ApiRequester apiRequester;
+    private Path tempFile;
 
     @BeforeEach
     public void setUp() throws IOException {
-        tempFile = File.createTempFile("test", ".txt");
-        FileWriterUtil.setFilePath(tempFile.getAbsolutePath());
-        System.out.println("Temporary file path: " + tempFile.getAbsolutePath());
-        ApiRequester.resetRequestCount();
+        wireMockServer = new WireMockServer(8080);
+        wireMockServer.start();
+        WireMock.configureFor("localhost", 8080);
+
+        WireMock.stubFor(WireMock.get(urlEqualTo("/fact"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"fact\":\"Cats have retractable claws.\"}")));
+
+        tempFile = Files.createTempFile("test_cats", ".txt");
+        FileWriterUtil fileWriterUtil = new FileWriterUtil(tempFile.toString());
+        CatFactService catFactService = new CatFactService("http://localhost:8080/fact");
+        apiRequester = new ApiRequester(catFactService, fileWriterUtil);
     }
 
     @AfterEach
     public void tearDown() {
-        if (tempFile.exists()) {
-            boolean deleted = tempFile.delete();
-            assertTrue(deleted, "Temporary file should be deleted.");
+        wireMockServer.stop();
+    }
+
+    @Test
+    public void testApiRequesterStartRequestProcess() throws InterruptedException, IOException {
+        apiRequester.startRequestProcess();
+        Thread.sleep(15000);
+
+        List<String> lines = Files.readAllLines(tempFile);
+        assertEquals(2, lines.size());
+
+        assertTrue(lines.contains("Cats have retractable claws."));
+    }
+
+    @Test
+    public void testApiRequesterGetRequestCount() {
+        assertEquals(0, apiRequester.getRequestCount());
+
+        apiRequester.performRequest();
+        apiRequester.performRequest();
+
+        assertEquals(2, apiRequester.getRequestCount());
+    }
+
+    @Test
+    public void testStartRequestProcessMaxRequestsReached() throws InterruptedException {
+        apiRequester.resetRequestCount();
+        apiRequester.startRequestProcess();
+        Thread.sleep(25000);
+        assertEquals(2, apiRequester.getRequestCount());
+    }
+
+    @Test
+    public void testPerformRequestWithException() {
+        CatFactService testCatFactService = new TestCatFactService();
+        FileWriterUtil testFileWriterUtil = new FileWriterUtil(tempFile.toString());
+        ApiRequester apiRequester = new ApiRequester(testCatFactService, testFileWriterUtil);
+
+        try {
+            apiRequester.performRequest();
+            assertEquals(0, apiRequester.getRequestCount());
+        } catch (Exception e) {
+            fail("Exception should not have been thrown");
         }
     }
 
     @Test
-    public void testPerformRequest() throws IOException {
-        ApiRequester.performRequest();
-        assertEquals(1, ApiRequester.getRequestCount(), "Request count should be incremented.");
+    public void testResetRequestCount() {
+        apiRequester.performRequest();
+        apiRequester.performRequest();
+        apiRequester.performRequest();
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
-            String line = reader.readLine();
-            assertNotNull(line, "File should not be null after writing the fact.");
-            assertFalse(line.isEmpty(), "File should contain a fact.");
-            assertTrue(line.length() > 10, "File content should be a non-trivial fact (more than 10 characters).");
-        }
-    }
+        assertEquals(3, apiRequester.getRequestCount());
 
-    @Test
-    public void testStartRequestProcess() throws InterruptedException {
-        ApiRequester.startRequestProcess();
+        apiRequester.resetRequestCount();
 
-        Thread.sleep(11000);
-
-        assertEquals(2, ApiRequester.getRequestCount(), "Request count should be 2 after all requests.");
-    }
-
-    @Test
-    public void testMaxRequestsReached() throws InterruptedException {
-        ApiRequester.startRequestProcess();
-
-        Thread.sleep(20000);
-
-        assertEquals(2, ApiRequester.getRequestCount(), "Request count should reach the maximum value of 2.");
-
-        int countBefore = ApiRequester.getRequestCount();
-        Thread.sleep(5000);
-        assertEquals(countBefore, ApiRequester.getRequestCount(), "No more requests should be performed.");
+        assertEquals(0, apiRequester.getRequestCount());
     }
 }

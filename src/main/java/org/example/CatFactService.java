@@ -12,13 +12,28 @@ import java.time.Duration;
 
 public class CatFactService {
 
-    private static final String API_URL = "https://catfact.ninja/fact";
-    private static final HttpClient client = HttpClient.newHttpClient();
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private final String apiUrl;
+    private final HttpClient client;
+    private final ObjectMapper objectMapper;
 
-    public static String fetchCatFact() throws IOException, InterruptedException {
+    public CatFactService() {
+        this("https://catfact.ninja/fact");
+    }
+
+    public CatFactService(String apiUrl) {
+        this.apiUrl = apiUrl;
+        this.client = HttpClient.newHttpClient();
+        this.objectMapper = new ObjectMapper();
+    }
+    public CatFactService(String apiUrl, HttpClient client, ObjectMapper objectMapper) {
+        this.apiUrl = apiUrl;
+        this.client = client;
+        this.objectMapper = objectMapper;
+    }
+
+    public String fetchCatFact() throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(API_URL))
+                .uri(URI.create(apiUrl))
                 .timeout(Duration.ofSeconds(10))
                 .GET()
                 .build();
@@ -32,7 +47,7 @@ public class CatFactService {
         return parseJsonResponse(response.body());
     }
 
-    private static String parseJsonResponse(String jsonResponse) throws IOException {
+    private String parseJsonResponse(String jsonResponse) throws IOException {
         JsonNode rootNode = objectMapper.readTree(jsonResponse);
         return rootNode.get("fact").asText();
     }

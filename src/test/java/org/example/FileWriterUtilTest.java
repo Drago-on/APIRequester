@@ -4,64 +4,57 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FileWriterUtilTest {
 
-    private File tempFile;
+    private FileWriterUtil fileWriterUtil;
+    private final String testFilePath = "test_output.txt";
 
     @BeforeEach
-    public void setUp() throws IOException {
-        tempFile = File.createTempFile("test", ".txt");
-        FileWriterUtil.setFilePath(tempFile.getAbsolutePath());
-        System.out.println("Temporary file path set to: " + tempFile.getAbsolutePath());
+    public void setUp() {
+        fileWriterUtil = new FileWriterUtil(testFilePath);
     }
 
     @AfterEach
-    public void tearDown() {
-        if (tempFile.exists()) {
-            boolean deleted = tempFile.delete();
-            if (!deleted) {
-                System.out.println("Failed to delete temporary file: " + tempFile.getAbsolutePath());
-            }
-        }
+    public void tearDown() throws IOException {
+        Files.deleteIfExists(Path.of(testFilePath));
     }
 
     @Test
-    public void testWriteToFileSuccess() throws IOException {
-        String testContent = "Test content";
+    public void testWriteToFile() throws IOException {
+        String content = "Test content";
+        fileWriterUtil.writeToFile(content);
 
-        FileWriterUtil.writeToFile(testContent);
+        Path path = Path.of(testFilePath);
+        assertTrue(Files.exists(path), "File should be created");
 
-        String fileContent = readFileContent(tempFile);
-        assertEquals(testContent, fileContent, "File should contain the written content.");
+        List<String> lines = Files.readAllLines(path);
+        assertEquals(1, lines.size(), "File should contain one line");
+        assertEquals(content, lines.get(0), "Content should match the written content");
     }
 
     @Test
     public void testSetFilePath() throws IOException {
-        String newFilePath = tempFile.getAbsolutePath();
-        FileWriterUtil.setFilePath(newFilePath);
+        String newFilePath = "new_test_output.txt";
+        fileWriterUtil.setFilePath(newFilePath);
 
-        String testContent = "Another test content";
-        FileWriterUtil.writeToFile(testContent);
+        String content = "New content";
+        fileWriterUtil.writeToFile(content);
 
-        String fileContent = readFileContent(tempFile);
-        assertEquals(testContent, fileContent, "File should contain the new written content.");
-    }
+        Path newPath = Path.of(newFilePath);
+        assertTrue(Files.exists(newPath), "New file should be created");
 
-    private String readFileContent(File file) throws IOException {
-        StringBuilder content = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                content.append(line);
-            }
-        }
-        return content.toString();
+        List<String> lines = Files.readAllLines(newPath);
+        assertEquals(1, lines.size(), "New file should contain one line");
+        assertEquals(content, lines.get(0), "Content should match the written content");
+
+        Files.deleteIfExists(newPath);
     }
 }
